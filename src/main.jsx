@@ -16,7 +16,8 @@ const STORAGE = {
   scenarios: 'jma_scenarios_v1',
   settings: 'jma_settings_v2',
   stats: 'jma_stats_v2',
-  roleplays: 'jma_roleplays_v1'
+  roleplays: 'jma_roleplays_v1',
+  kana: 'jma_kana_progress_v1'
 }
 
 const defaultSettings = { theme: 'light' }
@@ -288,9 +289,9 @@ function mockAI(task, payload) {
 }
 
 function App() {
-  const [tab, setTab] = useState('scenario')
+  const [tab, setTab] = useState('kana')
   const [settings, setSettings] = useState(getJSON(STORAGE.settings, defaultSettings))
-  const tabs = [['scenario', Home, '情境學習'], ['roleplay', MessageCircle, '角色對話'], ['reading', Newspaper, '閱讀理解'], ['translator', Languages, '翻譯學習'], ['learning', UserRound, '學習中心']]
+  const tabs = [['kana', BookOpen, '50音'], ['scenario', Home, '情境學習'], ['roleplay', MessageCircle, '角色對話'], ['reading', Newspaper, '閱讀理解'], ['translator', Languages, '翻譯學習'], ['learning', UserRound, '學習中心']]
   const setTheme = theme => { const next = { ...settings, theme }; setSettings(next); setJSON(STORAGE.settings, next) }
   return <div className={`app ${settings.theme}`}>
     <header className="topBar">
@@ -299,6 +300,7 @@ function App() {
       <span className="vip">👑 VIP</span>
     </header>
     <main>
+      {tab === 'kana' && <KanaPage />}
       {tab === 'scenario' && <ScenarioHome />}
       {tab === 'roleplay' && <RoleplayPage />}
       {tab === 'reading' && <Reading />}
@@ -307,6 +309,102 @@ function App() {
     </main>
     <nav className="bottomNav">{tabs.map(([id, Icon, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={21}/><span>{label}</span></button>)}</nav>
   </div>
+}
+
+
+const HIRAGANA = [
+  ['あ','い','う','え','お'], ['か','き','く','け','こ'], ['さ','し','す','せ','そ'], ['た','ち','つ','て','と'], ['な','に','ぬ','ね','の'],
+  ['は','ひ','ふ','へ','ほ'], ['ま','み','む','め','も'], ['や','','ゆ','','よ'], ['ら','り','る','れ','ろ'], ['わ','','','','を'], ['ん','','','','']
+]
+const KATAKANA = [
+  ['ア','イ','ウ','エ','オ'], ['カ','キ','ク','ケ','コ'], ['サ','シ','ス','セ','ソ'], ['タ','チ','ツ','テ','ト'], ['ナ','ニ','ヌ','ネ','ノ'],
+  ['ハ','ヒ','フ','ヘ','ホ'], ['マ','ミ','ム','メ','モ'], ['ヤ','','ユ','','ヨ'], ['ラ','リ','ル','レ','ロ'], ['ワ','','','','ヲ'], ['ン','','','','']
+]
+const ROMAJI = [
+  ['a','i','u','e','o'], ['ka','ki','ku','ke','ko'], ['sa','shi','su','se','so'], ['ta','chi','tsu','te','to'], ['na','ni','nu','ne','no'],
+  ['ha','hi','fu','he','ho'], ['ma','mi','mu','me','mo'], ['ya','','yu','','yo'], ['ra','ri','ru','re','ro'], ['wa','','','','wo'], ['n','','','','']
+]
+const KANA_EXAMPLES = {
+  あ:['あさ','朝／早上'], い:['いぬ','犬／狗'], う:['うみ','海／海'], え:['えき','駅／車站'], お:['おちゃ','お茶／茶'],
+  か:['かさ','傘／雨傘'], き:['きって','切手／郵票'], く:['くるま','車／車'], け:['けさ','今朝／今早'], こ:['こえ','声／聲音'],
+  さ:['さかな','魚／魚'], し:['しお','塩／鹽'], す:['すし','寿司／壽司'], せ:['せんせい','先生／老師'], そ:['そら','空／天空'],
+  た:['たまご','卵／雞蛋'], ち:['ちず','地図／地圖'], つ:['つき','月／月亮'], て:['て','手／手'], と:['ともだち','友達／朋友'],
+  な:['なつ','夏／夏天'], に:['にほん','日本／日本'], ぬ:['ぬの','布／布'], ね:['ねこ','猫／貓'], の:['のみもの','飲み物／飲品'],
+  は:['はな','花／花'], ひ:['ひと','人／人'], ふ:['ふね','船／船'], へ:['へや','部屋／房間'], ほ:['ほん','本／書'],
+  ま:['まち','町／城市'], み:['みず','水／水'], む:['むし','虫／昆蟲'], め:['め','目／眼睛'], も:['もも','桃／桃'],
+  や:['やま','山／山'], ゆ:['ゆき','雪／雪'], よ:['よる','夜／晚上'],
+  ら:['らーめん','ラーメン／拉麵'], り:['りんご','林檎／蘋果'], る:['るす','留守／不在家'], れ:['れい','例／例子'], ろ:['ろく','六／六'],
+  わ:['わたし','私／我'], を:['を','助詞／表示受詞'], ん:['ほん','本／書'],
+  ア:['アイス','雪糕'], イ:['インク','墨水'], ウ:['ウイスキー','威士忌'], エ:['エアコン','冷氣'], オ:['オレンジ','橙'],
+  カ:['カメラ','相機'], キ:['キッチン','廚房'], ク:['クラス','班級'], ケ:['ケーキ','蛋糕'], コ:['コーヒー','咖啡'],
+  サ:['サラダ','沙律'], シ:['シャツ','恤衫'], ス:['スマホ','手機'], セ:['セール','特價'], ソ:['ソファ','梳化'],
+  タ:['タクシー','的士'], チ:['チーズ','芝士'], ツ:['ツアー','旅行團'], テ:['テレビ','電視'], ト:['トイレ','洗手間'],
+  ナ:['ナイフ','刀'], ニ:['ニュース','新聞'], ヌ:['ヌードル','麵'], ネ:['ネット','網絡'], ノ:['ノート','筆記簿'],
+  ハ:['ホテル','酒店'], ヒ:['ヒーター','暖爐'], フ:['フォーク','叉'], ヘ:['ヘア','頭髮'], ホ:['ホーム','月台'],
+  マ:['マスク','口罩'], ミ:['ミルク','牛奶'], ム:['ムービー','電影'], メ:['メール','電郵'], モ:['モール','商場'],
+  ヤ:['ヤクルト','益力多'], ユ:['ユニフォーム','制服'], ヨ:['ヨーグルト','乳酪'],
+  ラ:['ラジオ','收音機'], リ:['リモコン','遙控器'], ル:['ルール','規則'], レ:['レストラン','餐廳'], ロ:['ロビー','大堂'],
+  ワ:['ワイン','葡萄酒'], ヲ:['ヲ','片假名助詞'], ン:['パン','麵包']
+}
+function flattenKana(type='hiragana') {
+  const table = type === 'katakana' ? KATAKANA : HIRAGANA
+  return table.flatMap((row, r) => row.map((ch, c) => ch ? { ch, romaji: ROMAJI[r][c], type, row: r, col: c } : null).filter(Boolean))
+}
+function speakKana(text) { try { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text || ''); u.lang = 'ja-JP'; u.rate = 0.74; window.speechSynthesis.speak(u) } catch {} }
+function dayIndex() { return Math.floor(new Date().getTime() / 86400000) }
+function buildQuizQuestion(mode='mixed') {
+  const pool = [...flattenKana('hiragana'), ...flattenKana('katakana')]
+  const item = pool[Math.floor(Math.random() * pool.length)] || pool[0]
+  const askSound = mode === 'sound' || (mode === 'mixed' && Math.random() > 0.5)
+  const options = [item, ...pool.filter(x => x.romaji !== item.romaji).sort(() => Math.random() - .5).slice(0, 3)].sort(() => Math.random() - .5)
+  return { item, askSound, options }
+}
+function KanaPage() {
+  const [type, setType] = useState('hiragana')
+  const [selected, setSelected] = useState(flattenKana('hiragana')[0])
+  const [progress, setProgress] = useState(getJSON(STORAGE.kana, { learned: [], quizCorrect: 0, quizTotal: 0 }))
+  const [quiz, setQuiz] = useState(buildQuizQuestion())
+  const [quizMsg, setQuizMsg] = useState('')
+  const all = useMemo(() => [...flattenKana('hiragana'), ...flattenKana('katakana')], [])
+  const todaySet = useMemo(() => {
+    const start = (dayIndex() * 5) % all.length
+    return Array.from({ length: 5 }, (_, i) => all[(start + i) % all.length])
+  }, [all])
+  const table = type === 'katakana' ? KATAKANA : HIRAGANA
+  const saveProgress = next => { setProgress(next); setJSON(STORAGE.kana, next) }
+  function markLearned(item = selected) {
+    const key = `${item.type}:${item.ch}`
+    if (!progress.learned.includes(key)) saveProgress({ ...progress, learned: [...progress.learned, key] })
+  }
+  function chooseKana(item) { setSelected(item); speakKana(item.ch) }
+  function answer(opt) {
+    const ok = opt.ch === quiz.item.ch
+    const next = { ...progress, quizTotal: progress.quizTotal + 1, quizCorrect: progress.quizCorrect + (ok ? 1 : 0) }
+    if (ok) {
+      const key = `${quiz.item.type}:${quiz.item.ch}`
+      if (!next.learned.includes(key)) next.learned = [...next.learned, key]
+    }
+    saveProgress(next)
+    setQuizMsg(ok ? '✅ 答對！很好，繼續建立字音連結。' : `❌ 今次是 ${quiz.item.ch} = ${quiz.item.romaji}`)
+    setTimeout(() => { setQuiz(buildQuizQuestion()); setQuizMsg('') }, 650)
+  }
+  const example = KANA_EXAMPLES[selected?.ch] || ['', '']
+  const learnedCount = progress.learned.length
+  const accuracy = progress.quizTotal ? Math.round(progress.quizCorrect / progress.quizTotal * 100) : 0
+  return <section className="page kanaPage">
+    <div className="kanaHero panel">
+      <div><h2>🌸 50音學習</h2><p className="hint">由零開始：每日5個字 → 點字聽音 → 小測驗。先認到字音，再進入情境對話。</p></div>
+      <div className="kanaStats"><Stat label="已學假名" value={`${learnedCount}/92`}/><Stat label="測驗正確率" value={`${accuracy}%`}/></div>
+    </div>
+    <div className="kanaLayout">
+      <div className="panel kanaToday"><div className="sectionHead"><div><h2>今日50音</h2><p className="hint">每日自動抽 5 個，建議先朗讀 3 次。</p></div></div><div className="todayKanaGrid">{todaySet.map(item => <button key={`${item.type}-${item.ch}`} onClick={() => chooseKana(item)}><b>{item.ch}</b><span>{item.romaji}</span><small>{item.type === 'hiragana' ? '平假名' : '片假名'}</small></button>)}</div></div>
+      <div className="panel kanaDetail"><h2>字卡</h2><div className="bigKana">{selected.ch}</div><h3>{selected.romaji}</h3><p className="hint">例字：<b>{example[0]}</b>　{example[1]}</p><div className="actionRow"><button className="primary" onClick={() => speakKana(selected.ch)}><Volume2 size={18}/> 聽發音</button><button className="softBtn" onClick={() => markLearned()}><Save size={18}/> 標記已學</button></div><先生 title="小貼士" text="平假名多用於日文原生詞及文法；片假名常用於外來語，例如 コーヒー、ホテル。"/></div>
+    </div>
+    <div className="kanaLayout wideLeft">
+      <div className="panel"><div className="kanaTabs"><button className={type==='hiragana'?'active':''} onClick={()=>setType('hiragana')}>平假名</button><button className={type==='katakana'?'active':''} onClick={()=>setType('katakana')}>片假名</button></div><div className="kanaTable">{table.map((row,r)=><div className="kanaRow" key={r}>{row.map((ch,c)=> ch ? <button key={ch} className={progress.learned.includes(`${type}:${ch}`)?'learned':''} onClick={()=>chooseKana({ ch, romaji: ROMAJI[r][c], type, row:r, col:c })}><b>{ch}</b><span>{ROMAJI[r][c]}</span></button> : <span key={c} className="kanaBlank"/> )}</div>)}</div></div>
+      <div className="panel kanaQuiz"><h2>50音測驗</h2><p className="hint">看字選音／看音選字混合練習。</p>{quiz.askSound ? <div className="quizPrompt"><button className="primary" onClick={()=>speakKana(quiz.item.ch)}><Volume2/> 播放聲音</button><span>聽音後選出正確假名</span></div> : <div className="quizPrompt"><b>{quiz.item.ch}</b><span>這個字的羅馬音是？</span></div>}<div className="quizOptions">{quiz.options.map(opt => <button key={`${opt.type}-${opt.ch}`} onClick={()=>answer(opt)}>{quiz.askSound ? <><b>{opt.ch}</b><span>{opt.type==='hiragana'?'平':'片'}</span></> : <><b>{opt.romaji}</b><span>{opt.ch}</span></>}</button>)}</div>{quizMsg && <div className="quizMsg">{quizMsg}</div>}</div>
+    </div>
+  </section>
 }
 
 function ScenarioHome() {
